@@ -1,0 +1,113 @@
+---
+title: "HW_4"
+author: "Dosova, Grill, Sima, Sirinko, Bazaluk"
+date: "2023-05-30"
+output: pdf_document
+---
+
+## Part A
+
+### Run the regression reg and obtain evidence on the autocorrelation of residuals. 
+
+```{r}
+library(dynlm)
+library(lmtest)
+data <- read.csv("../data/A4.data.csv")
+data = ts(data, start = c(1995,1), end = c(2003,12), frequency = 12)
+```
+
+```{r}
+reg <- dynlm(Y~X1+X2+X3, data = data)
+summary(reg)
+```
+
+Ljung-Box statistic can be used to test jointly that all 
+autocorrelations up to lag $p = 1$ are zero:
+
+```{r}
+resid <- residuals(reg)
+acf(resid, main = "ACF of the residuals - regression a")
+Box.test(resid, lag = 1, type = "Ljung-Box")
+```
+
+Ljung-Box test yields that we reject the null hypothesis in favor of alternative hypothesis and conclude that the residuals up to lag $1$ are autocorrelated.
+Moreover, on the autocorrelation function's (ACF) plot we can observe a strong suggestion that the residuals are autocorrelated. We can additionally do Durbin-Watson test (only at lag $1$) and Breusch-Godfrey test to test for autocorrelation:
+
+```{r}
+dwtest(reg)
+```
+
+As we can see in Durbin-Watson test, the hypothesis about the existence of autocorrelation in resuduals was confirmed, as the test statistic is equal to 0.16, which gives us strong positive autocorrelation.
+
+```{r}
+bgtest(reg, order = 1)
+```
+
+The results of the Breusch-Godfrey test also demonstrate that there is a significant evidence of residual autocorrelation in the regression model.
+
+## Part B
+
+### Account for the autocorrelation of residuals by using partial differences. Compare the results to (a). What are the main improvements  obtained?
+
+To see the obtained improvements we need to calculate the new regression with correlation coefficient intersected with each regression independent variable. Further we compare the results of the $Box-Ljung$ test with the regression from part $a)$ to see whether the autocorrelation continues to influence the results.
+
+```{r}
+acf_resid <- acf(resid, lag.max = 1, plot=FALSE)
+acf_resid
+```
+
+The $\rho$ coefficient can be estimated from the first order autocorrelation of the residuals from the original regression.
+Then we used partial differences to run the second regression:
+
+```{r}
+rho <- acf_resid$acf[2]
+reg2 <- dynlm(Y - L(rho * Y,1) ~
++ (X1 - L(rho * X1, 1))
++ (X2 - L(rho * X2, 1))
++ (X3 - L(rho *X3, 1)), data = data)
+summary(reg2)
+```
+
+From the regression equation we can see that now the p-value for $X_3$ variable rose dramatically and is considered to be rather insignificant for this regression. 
+
+```{r}
+resid2 <- residuals(reg2)
+acf(resid2, main = "ACF of the residuals - regression b")
+Box.test(resid2, lag = 1, type = "Ljung-Box")
+```
+
+From the $Box-Ljung$ test we can observe that p-value for the new regression increased up to $0.2398$. It shows that there is no evidence against the null hypothesis of no autocorrelation in the residuals. Thus, we improved our regression model by achieving a better fit of "no autocorrelation" principle.
+
+```{r}
+bgtest(reg2)
+```
+According to Breusch-Godfrey test results, since the p-value is greater than the typical significance level of 0.05, we fail to reject the null hypothesis which says that there is no autocorrelation in the residuals. Hence, partial differences did really mitigate the problem of autocorrelation in our case.
+
+## Part C
+
+### Evaluate and discuss the results and implications of this regression and compare them to those from $(a)$ and $(b)$. Provide a reason for adding the lagged dependent variable to the equation (in addition to accounting for residual autocorrelation).
+
+```{r}
+reg.ldv <- dynlm(Y ~ L(Y,1) + X1+X2+X3, data = data)
+summary(reg.ldv)
+```
+
+```{r, echo = FALSE}
+resid3 <- residuals(reg.ldv)
+acf(resid3, main = "ACF of the residuals - regression c")
+Box.test(resid3, lag = 1, type = "Ljung-Box")
+```
+
+Both Ljung-Box test and Breusch-Godfrey test of order 1 suggest that the there is no residual autocorrelation in the model.
+
+```{r}
+bgtest(reg.ldv)
+```
+
+In the first part a) no lagged variable was used for the regression, in the second part b) we employed partial differences which effectively resulted in correcting both all regressors and the dependent variable with their lagged counterparts. 
+Lastly we ran a regression with the lagged explanatory variable as an additional explanatory variable.
+
+In the second and third regression we have been able to eliminate the autocorrelation issue troubling out models. Estimates of the coefficients are also fairly similar as are their corresponding p-values. However, in c) the p-values for both Ljung-Box and Breusch-Godfrey tests slightly increased in comparison to b).
+
+It would therefore seem that the generating process has some sort of inertia influencing the behaviour of the $y$ variable. Depending on the nature of the problem it might be reasonable to take the lagged variable into account. For example we might consider a system that is holding and receiving energy ($x_{t,i}$) in each step. Here, clearly, the previous state of $y_{t-1}$ has an influence on the $y_{t}$ state besides any additional inputs (in the form of $x_i$).
+

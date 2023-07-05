@@ -1,0 +1,175 @@
+---
+title: "Homework_3"
+author: "Dosova, Grill, Sima, Sirinko, Bazaluk"
+date: "2023-05-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+data <- read.csv("../data/FF-5_Industry_Portfolios_daily-2017-2021.csv"
+                 , header = TRUE)
+```
+
+Significance level of $5\%$ is used throughout this assignment.
+
+```{r}
+reg.u <- lm((MANUF - RF) ~ MKT_RF + SMB + HML, data = data)
+reg.r <- lm((MANUF - RF) ~ MKT_RF, data = data)
+```
+
+## a)
+
+### Test whether the coefficient of `MKT_RF` in `reg.u` is significantly different from $1$
+
+We formulate a null hypothesis and a double sided alternative as follows:
+
+$$
+\begin{aligned}
+H_0 &: \beta_{MKT_{RF}} = 1,
+\\
+H_A &: \beta_{MKT_{RF}} \neq 1.
+\end{aligned}
+$$
+
+To test $H_0$ we performed t-test and calculated the t-statistic of the following form:
+$$t = \frac{b_{MKT_{RF}} - 1}{\text{SE}(b_{MKT_{RF}})}.$$
+The t-statistic measures the number of standard errors by which the estimated coefficient $b_{MKT_{RF}}$ deviates from its hypothesized value of $1$.
+
+The necessary values can be obtained from the R output.
+
+```{r}
+summary_u <- summary(reg.u)
+beta_mkt_rf <- summary_u$coefficients[2, 1]
+se_beta_mkt_rf <- summary_u$coefficients[2, 2]
+
+# calculate t-test statistic
+t_stat_u <- (beta_mkt_rf - 1) / se_beta_mkt_rf 
+
+# calculate p-value
+p_val_u <- 2 * pt(abs(t_stat_u), df = summary_u$df[2], lower.tail = FALSE)
+```
+
+
+```{r, echo = FALSE}
+cat("t-statistic \t P-value (P>|t|)
+    \n"
+    , t_stat_u, "\t", format(p_val_u, scientific = TRUE, digits = 3))
+```
+
+The p-value is far less than $0.05$, so assuming a significance level of $5\%$ and a two-tailed test we reject the null hypothesis and conclude that the coefficient of MKT_RF in reg.u is significantly different from $1$.
+
+\newpage
+
+## b)
+
+### Use the F-test statistic at the bottom of p.14 to test whether the coefficients of `SMB` and `HML` are jointly 0. The p-value of the F-test can be obtained using `1-pf(F, m, n-K)`
+
+To provide an answer we formulate these hypotheses.
+
+$$
+\begin{aligned}
+H_0 &: \beta_{\text{SMB}} = \beta_{\text{HML}} = 0,
+\\
+H_A &: \beta_{\text{SMB}} \neq 0  \text{ or } \beta_{\text{HML}} \neq 0.
+\end{aligned}
+$$
+The F-statistic is of the form : 
+$$F = \frac{(n-K)*(R_u ^{2} - R_r ^{2})}{m*(1-R_u ^{2})}.$$
+# TODO what does that mean? :(
+As of p.1 $k$ is the number of regressors and $K = k+1$.
+
+```{r}
+r_squared_u <- summary_u$r.squared 
+r_squared_r <- summary(reg.r)$r.squared
+
+n <- dim(data)[1] # number of observations
+K <- length(reg.u$coefficients) 
+m <- 2 # number of coefficients being jointly tested
+
+# calculate F-test statistic
+F_stat <- ((n-K) * (r_squared_u - r_squared_r)) / (m * (1 - r_squared_u))
+
+# calculate p-value 
+p_val_f <- 1 - pf(F_stat, m, n-K)
+```
+
+
+```{r, echo = FALSE}
+cat("F-statistic \t P-value
+    \n"
+    , F_stat, "\t", format(p_val_f, scientific = TRUE, digits = 3))
+```
+
+
+Alternatively, we can obtain F-test statistic and corresponding p-value by using anova() function:
+
+```{r}
+anova(reg.r, reg.u)
+```
+
+The p-value for the F-test is less than $0.05$, so assuming a significance level of $5\%$ we reject the null hypothesis that the coefficients of `SMB` and `HML` are jointly zero. It indicates that at least one of these coefficients is significantly different from zero.
+
+\newpage
+
+## c)
+### Use a Breusch-Pagan test to test the residuals of `reg.u` for heteroscedasticity. Replicate the results from `bptest(reg.u)` by running the required auxiliary regression. The p-value of the test statistic bpt can be obtained using `1-pchisq(bpt,df)`.
+
+From the `"lmtest"` library we use `"bptest"` function to provide a Breusch-Pagan test of the unrestricted regression model and particularly the heteroskedasticity of its residuals:
+
+```{r, echo=FALSE, warning=FALSE}
+require(lmtest)
+```
+```{r}
+bptest(reg.u)
+```
+
+The Breusch-Pagan test is based on the regression of the squared values of the residuals on the constant and the other regressors. P-value computed by the test is less than $0.05$, that is why we reject the null hypothesis of the homoscedastisity and not reject the alternative hypothesis of heteroscedasticity.
+
+To replicate the results from $bptest$ we run the auxiliary regression . For this replication we need the test result of $bptest$ from the auxiliary regression and $df$ which is degree of freedom (number of independent variables).
+
+```{r, results='hide'}
+reg.bp <- lm(reg.u$residuals^2 ~ MKT_RF+SMB+HML, data)
+summary(reg.bp)
+```
+
+```{r}
+n <- nrow(data)
+bpt <- summary(reg.bp)$r.squared * n
+df <- length(reg.bp$coefficients) - 1
+pvalue.bpt <- 1 - pchisq(bpt,df)
+```
+
+```{r}
+c(bptest(reg.u)$p.value, pvalue.bpt)
+```
+```{r}
+c(bptest(reg.u)$statistic, bpt)
+```
+
+We can see that both for initial function and replicated we have the same test- and p-values that show the rejection of the null hypothesis in favor of the alternative hypothesis.
+
+\newpage
+
+## d)
+### Obtain White heteroscedasticity consistent (WHC) standard errors and test again whether the coefficient of `MKT_RF` in `reg.u` is significantly different from $1$. The required code is
+
+```{r}
+require(sandwich)
+coeftest(reg.u, vcov = vcovHC(reg.u, type = "HC0"))
+
+new_test <- coeftest(reg.u, vcov = vcovHC(reg.u, type = "HC0"), significance.level = 0.05)
+
+t_stat_het <- (new_test[2,1] - 1) / new_test[2,2]
+
+p_val_het <- 2 * pt(abs(t_stat_het),df = reg.u$df.residual, lower.tail = FALSE)
+```
+
+```{r, echo = FALSE}
+cat("t-statistic \t P-value (P>|t|)\n" , t_stat_het, "\t", p_val_het)
+```
+
+Again, we see that even with respect to White heteroscedasticity consistent (WHC) standard errors the p-value is less than 0.05, so at $5\%$ significance level we conclude that the coefficient is significantly different from $1$.
+
+

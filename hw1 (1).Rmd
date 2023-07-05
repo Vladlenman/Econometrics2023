@@ -1,0 +1,207 @@
+---
+title: "Econometrics - SS 2023"
+author: "Dosova, Grill, Sima, Sirinko, Bazaluk"
+subtitle: Assignment 1
+output:
+  pdf_document:
+  latex_engine: xelatex
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Use the file "train.csv" from the kaggle competition (attached), 
+and run the following regression:
+**reg1=lm(SalePrice~OverallQual+YearBuilt+LivAreaSF,data=train)**.
+
+```{r, echo = FALSE}
+df <- read.csv("../data/train.csv", header = TRUE)
+train <- df
+reg1=lm(SalePrice ~ OverallQual+YearBuilt+LivAreaSF,data=df)
+summary(reg1)
+```
+
+# Part a 
+Interpret the coefficient/slope of *YearBuilt*.
+
+The estimated value of $\beta_{YearBuilt}$ is $614.09$. We may interpret this
+number as follows.
+
+For all other regressors kept constant with every additional unit of "YearBuilt", 
+in other words with every year of age of the property less, the estimated
+expected value of the dependent variable "SalePrice" increases by $614.09$ units of price
+provided the model holds.
+
+# Part b
+Use reg1, check the implications 1-4 from section 1.1.2, and 
+interpret the value of $R^2$ ("Multiple R-squared" in R's summary of lm).
+
+## b.1
+
+It is to be verified that the **residuals** have zero mean.
+
+```{r}
+mean(reg1$residuals)
+```
+
+This result is basically zero, we can expect numerical discrepancies.
+
+## b.2
+
+To check that the mean of the fitted values is equal to the sample mean one
+can use the following code.
+
+```{r}
+mean(reg1$fitted.values) == mean(df$SalePrice)
+```
+
+This time exactly the desired result has been obtained.
+
+## b.3
+
+The regression evaluated at the means of the regressors is equal to the 
+sample mean of the dependent variable. 
+
+```{r}
+# mean of the regressors
+df_3<- cbind(df$OverallQual, df$YearBuilt, df$LivAreaSF)
+x_means <- c(1, apply(df_3, 2, mean))
+
+# check implication
+c(reg1$coefficients)%*%x_means - mean(df$SalePrice)
+```
+
+Not quite zero due to numerical nature of the coefficient calculation.
+
+## b.4
+
+The fitted values and the residuals are orthogonal:
+
+```{r}
+reg1$fitted.values%*%reg1$residuals
+```
+
+Once again one can only hope to achieve the theoretical result. However, this time the 
+result is not as decisively suggesting numerical instability.
+
+## R squared statistic
+
+As a basic measure of goodness of fit one might use the $R^2$ statistic. 
+
+```{r}
+summary(reg1)$r.squared
+```
+
+The value obtained means that $56\%$ of the variability in the dependent variable can be explained by the independent variables. Even though the $R^2$ statistic does not typically paint the full picture
+in this case, one might argue that it is strongly suggesting that the model does not 
+reflect on the reality sufficiently.
+
+
+# Part c 
+Compute the variable "Age" by subtracting YearBuilt 
+from 2010 (i.e. train[,"Age"]=2010-train[,"YearBuilt"]). 
+Suppose you run the regression reg2=lm(SalePrice~OverallQual+Age+LivAreaSF,data=train). 
+Which results in reg2 differ from reg1? Why? 
+
+```{r}
+train$Age <- 2010 - train$YearBuilt
+reg2 <- lm(SalePrice ~ OverallQual + Age + LivAreaSF, data = train)
+summary(reg2)
+```
+
+In the regression reg2 the variable "YearBuilt" has been replaced with "Age" as an independent variable. "Age" is calculated by subtracting the "YearBuilt" variable from the constant 2010, so "Age" is simply a linear transformation of "YearBuilt". Therefore one can calculate the new values of intercept and $\beta_{3_{alt}}$.
+Define $x_{Age} \equiv 2010 - x_{YB}$, then the original and new model are
+
+$$
+\begin{aligned}
+\hat{y}_{orig} & = \beta_0 + \beta_{OQ} x_{OQ} + \beta_{YB} x_{YB} + \beta_{LA} x_{LA}, 
+\\
+\hat{y}_{alt} & = \beta_0 + \beta_{OQ} x_{OQ} + \beta_{YB}( 2010 - x_{YB} ) + \beta_{LA} x_{LA} \\
+    & = \beta_0 + 2010 \beta_{YB}+ \beta_{OQ} x_{OQ} + -\beta_{YB}x_{YB} + \beta_{LA} x_{LA} \\
+    & = \beta_{0_{alt}} +\beta_{OQ} x_{OQ} -\beta_{YB}x_{YB} + \beta_{LA} x_{LA},
+\end{aligned}
+$$
+
+where the new intercept coefficient is $\beta_{0_{alt}} = \beta_0 + 2010 \beta_{YB}$
+and $\beta_{YB_{alt}} = - \beta_{YB}$.
+
+Check:
+```{r}
+2010*reg1$coefficients[3]+reg1$coefficients[1] - reg2$coefficients[1]
+```
+
+
+# Part d 
+Suppose you had information on the the year and the month a house was built. 
+In that case age can be measured in months instead of years (e.g. the measurements 
+would be 12 (months) instead of 1 (year) or 18 (months) instead of 1.5 (years)).
+How would this change the results in the regression? Which results would change?
+
+```{r}
+train$Age <- train$Age*12
+reg3=lm(SalePrice~OverallQual+Age+LivAreaSF,data=train)
+summary(reg3)$coefficients[3,]
+```
+
+The only difference from the previous model lies in the coefficient and (therefore) the standard error of the "Age" variable. After multiplying the initial value from the sample by $12$ we have only changed the minimum, maximum and range for the variable, but the distribution and interconnectedness with the dependent factor have remained the same. We have not changed any other value for other variables, therefore they remain with the same coefficients and standard errors. Change of one variable does not affect other parameters, because of the $\textbf{Frisch-Waugh Teorem}$, as effects of all regressors are controlled. We can see that the "t-value" remains the same, thus it proves additionaly that we have only changed the scale of the parameter and nothing else.
+
+Similarly as in part c one can show that 
+
+$$
+\begin{aligned}
+x_{age_1} & = 12x_{age_0},
+\\
+\beta_{age_1} & = \frac{\beta_{age_0}}{12}.
+\end{aligned}
+$$
+```{r}
+reg2$coefficients[3]/12 - reg3$coefficients[3]
+```
+
+# Part e 
+Try to compare the impact of YearBuilt to LivAreaSF on SalePrice. 
+Is it possible to say which of the two regressors has a stronger effect? 
+You may want to take into account that 
+$sd(train\$YearBuilt) = 29.98978$ and $sd(train\$LivAreaSF) = 508.4806$. 
+
+At first glance, if we look at the first regression we see that the YearBuilt 
+seems to have stronger effect on SalePrice. However, the standard errors 
+of YearBuilt and LiveAreaSF differ significantly, 
+which means that the numbers have different order. In that case, we need to standardize them to acquire a comparable results. 
+
+```{r}
+train <- read.csv("../data/train.csv")
+#standardize
+train$YearBuilt_stand <- train$YearBuilt/sd(train$YearBuilt)
+train$LivAreaSF_stand <- train$LivAreaSF/sd(train$LivAreaSF)
+reg=lm(SalePrice~OverallQual+YearBuilt_stand+LivAreaSF_stand,data=train)
+summary(reg)
+```
+
+
+After standardization we see that the living area has stronger effect on the sale price than the year of built. However, the difference between effects of two regressors is not large. Therefore, 
+if other variables are taken into consideration the effects could change yielding different conclusions.
+
+Moreover, one must take into account that both of the regressors are in different 
+units of measurement - YearBuilt [year], LiveAreaSF [squared feet]. 
+
+Being mindful of the coefficient interpretation, change of expected value of $y$ given
+a unit change in the underlying regressor keeping all other explanatory variables constant - 
+one cannot make a simple conclusion about the "strength effects". 
+
+An alternative approach may help draw a conclusion.
+
+```{r, echo = FALSE}
+plot(SalePrice ~ YearBuilt, data = df)
+plot(SalePrice ~ LivAreaSF, data = df)
+```
+
+Ignoring the outlier observations and heteroscedasticity for now, it would seem reasonable
+to hypothesise that the living area seems to influence the sale price more predictably (linearly) than 
+the age of the building, for which the prices does not seem to be following and obvious linear trend
+which indicates the model is possibly not well defined.
+
+That said what we can say is that in general the newer and (or) the larger the property, the 
+greater the sales price.

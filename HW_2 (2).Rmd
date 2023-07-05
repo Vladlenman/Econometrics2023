@@ -1,0 +1,118 @@
+---
+title: "Homework_2"
+author: "Dosova, Grill, Sima, Sirinko, Bazaluk"
+date: "2023-05-05"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercise 1
+
+### Intepret the coefficient associated with LivAreaSF
+
+```{r}
+train <- read.csv("../data/train.csv", header = TRUE)
+reg1=lm(log(SalePrice)~OverallQual+YearBuilt+LivAreaSF, data = train)
+reg2=lm(SalePrice~OverallQual+YearBuilt+log(LivAreaSF), data = train)
+reg3=lm(log(SalePrice)~OverallQual+YearBuilt+log(LivAreaSF), data = train)
+c(reg1$coefficients[4], reg2$coefficients[4], reg3$coefficients[4])
+```
+
+## Reg1
+
+For $regression \space 1$ model it can be shown that increase of living area by 1 square foot results in an approximate $100*b_3\%$ change in the price. 
+
+Let $x_3$ be the `LivAreaSF` random variable and 
+$\hat{y} = b_0 + b_1x_1 + b_2 x_2 + b_3 x_3$, then
+
+$$
+\begin{aligned}
+log(\hat{y}') & = b_0 + b_1x_1 + b_2x_2 + b_3(x_3 + 1)
+\\
+log(\hat{y}') & = b_0 + b_1x_1 + b_2x_2 + b_3x_3 + b_3 = log(\hat{y}) + b_3
+\\
+log(\frac{\hat{y}'}{\hat{y}}) & = b_3
+\\
+\frac{\hat{y}'}{\hat{y}} & = e^{b_3}.
+\end{aligned}
+$$
+Thus, ceteris paribus for 1 square foot increase of living area 
+the sale price is scaled by $(e^{b_3}-1) \cdot 100 \%$ which in our case is $(e^{b_3}-1) \cdot 100 \% \approx b_3 \cdot 100 \%$:
+
+```{r}
+exp(reg1$coefficients[4])-1
+```
+
+## Reg2
+
+For $regression \space 2$ we have that 1% increase in the living area results in $\frac{b_3}{100}$ increase in the price of the house. Thus, by 1% increase in the living area, ceteris paribus price of the house increases by $702.892$.
+
+However, this is only an approximation since
+$$
+\begin{aligned}
+b_3 \cdot log(1.01 \cdot LivAreaSF) & = b_3 \cdot log(1.01) + b_3 \cdot log(LivAreaSF) 
+\\
+& \Downarrow
+\\
+\Delta SalePrice = b_3 \cdot \log(1.01) & = b_3 \cdot 0.00995 \ldots \approx 0.01 \cdot b_3.
+\end{aligned}
+$$
+
+```{r}
+log(1.01)*reg2$coefficients[4]
+```
+
+## Reg3
+
+For $regression \space 3$ we have that 1% increase in the living area results in a $b\%$ increase in the price of the house. Thus, by 1% increase in the living area, ceteris paribus price of the house increases by $0.465291\%$.
+This is a result of a linear approximation since
+
+$$
+\begin{aligned}
+\log(SP) &= b_0 + b_1 \cdot OQ + b_2 \cdot YB + b_3 \cdot \log(LASF)
+\\
+&\Downarrow
+\\
+\log(SP') & = b_0 + b_1 \cdot OQ + b_2 \cdot YB + b_3 \cdot \log(1.01 \cdot LASF) \\
+\log \left( \frac{SP'}{SP} \right) & = b_3 \cdot \log(1.01) \Leftrightarrow \left( \frac{SP'}{SP} \right) - 1 = 1.01^{b_3} - 1 .
+\end{aligned}
+$$
+
+```{r}
+100*(1.01^reg3$coefficients[4]-1)
+```
+
+A linear approximation of f(1.01) is given by $f(1.01) \approx f(1) + f'(1) \cdot (1.01-1)$. \
+$f(1)=1^{b_3}-1=0$ and $f'(1)=b_3 \cdot 1^{b_3 - 1} = b_3$, hence $1.01^{b_3}-1 \approx 0.01 \cdot b_3$.
+
+Thus, we see that for Log-level, level-log and log-log regressions we have different coefficients that represent changes in absolute unites or in percentage.
+
+
+## Exercise 2
+
+```{r}
+train$G.unfin <- ifelse(train$GarageFinish %in% c(NA, "Unf"),1,0)
+reg.G=lm(data=train,SalePrice~OverallQual+YearBuilt+G.unfin)
+reg.Gi=lm(data=train,SalePrice~OverallQual+YearBuilt+G.unfin+OverallQual*G.unfin)
+```
+
+### (a) Interpret the coefficient of `G.unfin` from `reg.G`
+```{r}
+reg.G$coefficients[4]
+```
+
+Coefficient of `G.unfin` implies that regression line for properties with an unfinished garage is parallel shifted downwards by $24,088.68$ units (USD) from the regression line for properties with a finished garage. 
+
+Having an unfinished Garage leads to a decrease of 24088.68 price units (USD) compared to otherwise same houses with a finished garage. In other words the coefficient shows the ceteris paribus expected change in $\hat{y}$ when we switch from the reference category (finished garage) to another category (unfinished garage).
+
+
+### (b) Interpret the coefficient of the interaction term `OverallQual*G.unfin` from `reg.Gi`
+
+```{r}
+reg.Gi$coefficients[5]
+```
+Having an unfinished Garage reduces the expected slope of `OverallQual` by 16249.37 price units, with the variable `YearBuilt` kept constant. This implies that Overall Quality has a weaker impact on the price when the garage is unfinished compared to when the garage is finished. At the same time we can interpret it as the difference in the garrage effect for those who differ in Quality for 1 unit, so this coefficient can be interpreted from the perspective of both variables. 
+
